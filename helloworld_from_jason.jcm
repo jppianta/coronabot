@@ -16,7 +16,6 @@ mas helloworld_from_jason {
 
     agent sample_agent:sample_agent.asl{
     	focus: integration
-    	goals: hello
     }
     
 	workspace wp{

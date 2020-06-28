@@ -6,21 +6,41 @@
 	.
 	
 +!responder(Req)
-	: (Req == "Call Jason Agent")
+	: (Req == "febre")
 <-
-	reply("Olá, eu sou seu agente Jason, em que posso lhe ajudar?");
+	addSintoma("febre");
+	.
++!responder(Req)
+	: (Req == "cansaco")
+<-
+	addSintoma("cansa�o");
+	.
++!responder(Req)
+	: (Req == "tosse seca")
+<-
+	addSintoma("tosse seca");
+	.
++!responder(Req)
+	: (Req == "fim de sintomas") & risco(nulo)
+<-
+	reply_sintomas("nulo")
+	.
++!responder(Req)
+	: (Req == "fim de sintomas") & risco(baixo)
+<-
+	reply_sintomas("baixo")
+	.
++!responder(Req)
+	: (Req == "fim de sintomas") & risco(medio)
+<-
+	reply_sintomas("medio")
 	.
 +!responder(Req)
 	: true
 <-
-	reply("Desculpe, não reconheço essa intenção");
+	.print("default")
 	.
-	
-+!hello
-    : True
-<-
-    .print("hello world");
-    .
+
 
 { include("$jacamoJar/templates/common-cartago.asl") }
 { include("$jacamoJar/templates/common-moise.asl") }

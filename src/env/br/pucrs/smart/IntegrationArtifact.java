@@ -3,6 +3,7 @@
 package br.pucrs.smart;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,13 +16,23 @@ import br.pucrs.smart.models.OutputContexts;
 import br.pucrs.smart.models.ResponseDialogflow;
 import cartago.*;
 import jason.asSyntax.Literal;
+import jason.asSyntax.ASSyntax;
+import jason.asSyntax.Term;
 
 public class IntegrationArtifact extends Artifact implements IAgent {
 	private Logger logger = Logger.getLogger("ArtefatoIntegracao." + IntegrationArtifact.class.getName());
+	private HashSet<String> sintomas = new HashSet<String>();
+	private Term[] risco = {
+			ASSyntax.createAtom("nulo"),
+			ASSyntax.createAtom("baixo"),
+			ASSyntax.createAtom("medio"),
+			ASSyntax.createAtom("alto"),
+	};
 	String jasonResponse = null;
 
 	void init() {
 		RestImpl.setListener(this);
+		defineObsProperty("risco", this.risco[0]);
 	}
 
 	@INTERNAL_OPERATION
@@ -33,13 +44,57 @@ public class IntegrationArtifact extends Artifact implements IAgent {
 	void reply(String response) {
 		this.jasonResponse = response;
 	}
+	
+	@OPERATION
+	void reply_sintomas(String risco) {
+		String padrao = "mas ainda assim recomendaria a visita de um mÈdico";
+		switch(risco) {
+			case "nulo": {
+				this.jasonResponse = "VocÍ n„o parece ter nenhum sintoma caracterÌstico de covid, " + padrao;
+				break;
+			}
+			case "baixo": {
+				this.jasonResponse = "Eu diria que vocÍ tem um risco baixo de covid-19, apresentando apenas " + this.getSintomas() + padrao;
+				break;
+			}
+			case "medio": {
+				this.jasonResponse = "VocÍ tem um risco consider·vel de covid-19, apresentando " + this.getSintomas() + "È bastante recomend·vel a visita de um mÈdico";
+			}
+		}
+	}
+	
+	private String getSintomas() {
+		String sint = "";
+		for (String sintoma : this.sintomas) {
+			sint += sintoma + ", ";
+		}
+		
+		return sint;
+	}
+	
+	@OPERATION
+	void addSintoma(String sintoma) {
+		this.sintomas.add(sintoma);
+		this.updateRisco();
+	}
+	
+	@INTERNAL_OPERATION
+	void updateRisco() {
+		ObsProperty prop = getObsProperty("risco");
+		if (this.sintomas.size() == 1) {
+			prop.updateValue(this.risco[1]);
+		} else if (this.sintomas.size() >= 2 && this.sintomas.size() <= 4) {
+			prop.updateValue(this.risco[2]);
+		} else if (this.sintomas.size() > 4) {
+			prop.updateValue(this.risco[3]);
+		}
+	}
 
 	@Override
-	public ResponseDialogflow processarIntencao(String sessionId, String request, HashMap<String, String> parameters, List<OutputContexts> outputContexts) {
-
+	public ResponseDialogflow processarIntencao(String sessionId, String request, HashMap<String, String> parameters, List<OutputContexts> outputContexts, String fullfilmentText) {
 		ResponseDialogflow response = new ResponseDialogflow();
 		System.out.println("recebido evento: " + sessionId);
-		System.out.println("Inten√ß√£o: " + request);
+		System.out.println("IntenÁ„o: " + request);
 		if (request != null) {
 			for(Map.Entry<String, String> entry : parameters.entrySet()) {
 			    String key = entry.getKey();
@@ -65,7 +120,7 @@ public class IntegrationArtifact extends Artifact implements IAgent {
 			System.out.println("Definindo propriedade observ√°vel");
 		} else {
 			System.out.println("N√£o foi poss√≠vel definir a propriedade observ√°vel");
-			response.setFulfillmentText("Inten√ß√£o n√£o reconhecida");
+			response.setFulfillmentText("IntenÁ„o n„o reconhecida");
 		}
 		int i = 0;
 		while (this.jasonResponse == null && i <= 200) {
@@ -82,7 +137,11 @@ public class IntegrationArtifact extends Artifact implements IAgent {
 			this.jasonResponse = null;
 		} else {
 			System.out.println("Sem jasonResponse");
-			response.setFulfillmentText("Sem resposta do agente");
+			if (fullfilmentText != null) {
+				response.setFulfillmentText(fullfilmentText);
+			} else {
+				response.setFulfillmentText("Sem resposta do agente");				
+			}
 		}
 		return response;
 	}
